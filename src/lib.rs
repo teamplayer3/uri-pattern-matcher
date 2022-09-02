@@ -48,13 +48,17 @@ use core::cmp::Ordering;
 /// Struct used to parse strings as patterns - Check if an incoming string matches a pattern - Pattern Comparison
 #[derive(Debug, Clone)]
 pub struct UriPattern<'a> {
+    pub value: &'a str,
     pub(crate) parts: Vec<PatternPart<'a>>,
 }
 
 impl<'a> From<&'a str> for UriPattern<'a> {
     fn from(pattern: &'a str) -> Self {
         let parts = pattern.split('/').map(|part| part.into()).collect();
-        Self { parts }
+        Self {
+            value: pattern,
+            parts,
+        }
     }
 }
 
