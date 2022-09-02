@@ -38,24 +38,23 @@
 //!            .max();
 //! assert_eq!(best_match.unwrap(), &UriPattern::from("/api/{foo}/{bar}/zzz"));
 //! ```
-mod uri_pattern_score;
 mod pattern_part;
+mod uri_pattern_score;
 
-use core::cmp::Ordering;
 use crate::pattern_part::PatternPart;
 use crate::uri_pattern_score::UriPatternScore;
+use core::cmp::Ordering;
 
 /// Struct used to parse strings as patterns - Check if an incoming string matches a pattern - Pattern Comparison
 #[derive(Debug, Clone)]
 pub struct UriPattern<'a> {
-    value: &'a str,
     pub(crate) parts: Vec<PatternPart<'a>>,
 }
 
 impl<'a> From<&'a str> for UriPattern<'a> {
     fn from(pattern: &'a str) -> Self {
         let parts = pattern.split('/').map(|part| part.into()).collect();
-        Self { value : pattern, parts }
+        Self { parts }
     }
 }
 
@@ -71,12 +70,18 @@ impl UriPattern<'_> {
     /// assert!(pattern.is_match("/api/customer/John/details"));
     /// ```
     pub fn is_match(&self, candidate: &str) -> bool {
-        !candidate.split('/').enumerate().map(|(key, value)| {
-            match self.parts[key] {
-                PatternPart::Joker => true,
-                PatternPart::Value(s) => if s == value {true} else {false},
-            }
-        })
+        let splitted = candidate.split('/').collect::<Vec<_>>();
+        if splitted.len() != self.parts.len() {
+            return false;
+        }
+        !splitted
+            .into_iter()
+            .enumerate()
+            .map(|(key, value)| match self.parts.get(key) {
+                Some(PatternPart::Joker) => true,
+                Some(PatternPart::Value(s)) => *s == value,
+                None => false,
+            })
             .collect::<Vec<bool>>()
             .contains(&false)
     }
@@ -107,8 +112,6 @@ impl Ord for UriPattern<'_> {
 }
 
 impl Eq for UriPattern<'_> {}
-
-
 
 #[cfg(test)]
 mod tests {
@@ -146,12 +149,13 @@ mod tests {
         let patterns: Vec<UriPattern> = vec![
             "/api/{foo}/bar/{zzz}".into(),
             "/api/{foo}/{bar}/zzz".into(),
-            "/{api}/{foo}/foo/{zzz}".into()
+            "/{api}/{foo}/foo/{zzz}".into(),
         ];
         let candidate = "/api/resource/bar/zzz";
-        let best_match = patterns.iter()
-            .filter(|p| p.is_match(candidate))
-            .max();
-        assert_eq!(best_match.unwrap(), &UriPattern::from("/api/{foo}/{bar}/zzz"));
+        let best_match = patterns.iter().filter(|p| p.is_match(candidate)).max();
+        assert_eq!(
+            best_match.unwrap(),
+            &UriPattern::from("/api/{foo}/{bar}/zzz")
+        );
     }
 }
